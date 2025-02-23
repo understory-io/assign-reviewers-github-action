@@ -1,24 +1,13 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
-
-# Add your action's branding here. This will appear on the GitHub Marketplace.
-branding:
-  icon: heart
-  color: red
-
-# Define your inputs here.
+name: "Assign author review"
+description: "Automatically assign git commit authors as review on release PRs"
 inputs:
-  milliseconds:
-    description: Your input description here
+  token:
+    description: "The token that the action will use to assign reviewers"
     required: true
-    default: '1000'
-
-# Define your outputs here.
-outputs:
-  time:
-    description: Your output description here
-
+    default: ${{ github.token }}
+# outputs:
+#   time: # id of output
+#     description: "The time we greeted you"
 runs:
-  using: node20
-  main: dist/index.js
+  using: "node20"
+  main: "dist/index.js"
