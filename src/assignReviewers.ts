@@ -7,12 +7,14 @@ export async function assignReviewers({
   token,
   userLogin,
   debug,
+  info,
 }: {
   owner: string;
   repo: string;
   number: number;
   token: string;
   userLogin: string;
+  info: (message: string) => void;
   debug: (message: string) => void;
 }): Promise<Array<string>> {
   const octokit = getOctokit(token);
@@ -38,16 +40,42 @@ export async function assignReviewers({
   );
   authors.delete(userLogin);
 
-  debug(`Authors: ${authors}`);
+  info(`Commit authors: ${[...authors]}`);
+
+  const existingReviewers = await octokit.rest.pulls.listRequestedReviewers({
+    owner: owner,
+    repo: repo,
+    pull_number: number,
+  });
+
+  const existingReviewerLogins = new Set(
+    existingReviewers.data.users.map((user) => user.login)
+  );
+
+  info(`Existing open reviewers: ${[...existingReviewerLogins]}`);
+
+  // filter out authors who has already provided a review
+  const relevantAuthors = [...authors].filter((author) =>
+    existingReviewerLogins.has(author)
+  );
+
+  debug(`Relevant authors: ${relevantAuthors}`);
+
+  if (relevantAuthors.length === 0) {
+    info("No reviewers have been assigned to the pull request");
+    return [];
+  }
 
   const result = await octokit.rest.pulls.requestReviewers({
     owner: owner,
     repo: repo,
     pull_number: number,
-    reviewers: [...authors],
+    reviewers: relevantAuthors,
   });
 
-  debug("request reviewers " + JSON.stringify(result));
+  if (result.status !== 201) {
+    throw new Error("Failed to update reviewers: " + JSON.stringify(result));
+  }
 
-  return [...authors];
+  return relevantAuthors;
 }

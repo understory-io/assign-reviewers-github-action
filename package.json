@@ -5,6 +5,7 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc && ncc build lib/index.js",
+    "manual-test": "tsc && node lib/tests/test.js",
     "prepare": "husky"
   },
   "author": "",
