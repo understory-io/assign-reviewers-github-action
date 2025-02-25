@@ -32,7 +32,9 @@ export async function assignReviewers({
 
   // deduplicate authors in case of multiple commits by the same author
   const authors = new Set<string>(
-    commits.data.map((commit) => commit.author?.login as string)
+    commits.data
+      .map((commit) => commit.author?.login)
+      .filter((login): login is string => login !== undefined && login !== null)
   );
   authors.delete(userLogin);
 
