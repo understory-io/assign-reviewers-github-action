@@ -9,7 +9,7 @@
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.assignReviewers = assignReviewers;
 const github_1 = __nccwpck_require__(3228);
-async function assignReviewers({ owner, repo, number, token, userLogin, debug, }) {
+async function assignReviewers({ owner, repo, number, token, userLogin, debug, info, }) {
     const octokit = (0, github_1.getOctokit)(token);
     let commits;
     try {
@@ -28,15 +28,31 @@ async function assignReviewers({ owner, repo, number, token, userLogin, debug, }
         .map((commit) => commit.author?.login)
         .filter((login) => login !== undefined && login !== null));
     authors.delete(userLogin);
-    debug(`Authors: ${authors}`);
+    info(`Commit authors: ${[...authors]}`);
+    const existingReviewers = await octokit.rest.pulls.listRequestedReviewers({
+        owner: owner,
+        repo: repo,
+        pull_number: number,
+    });
+    const existingReviewerLogins = new Set(existingReviewers.data.users.map((user) => user.login));
+    info(`Existing open reviewers: ${[...existingReviewerLogins]}`);
+    // filter out authors who has already provided a review
+    const relevantAuthors = [...authors].filter((author) => existingReviewerLogins.has(author));
+    debug(`Relevant authors: ${relevantAuthors}`);
+    if (relevantAuthors.length === 0) {
+        info("No reviewers have been assigned to the pull request");
+        return [];
+    }
     const result = await octokit.rest.pulls.requestReviewers({
         owner: owner,
         repo: repo,
         pull_number: number,
-        reviewers: [...authors],
+        reviewers: relevantAuthors,
     });
-    debug("request reviewers " + JSON.stringify(result));
-    return [...authors];
+    if (result.status !== 201) {
+        throw new Error("Failed to update reviewers: " + JSON.stringify(result));
+    }
+    return relevantAuthors;
 }
 
 
@@ -96,6 +112,7 @@ async function run() {
             number,
             token,
             debug: core.debug,
+            info: core.info,
             owner: github_1.context.repo.owner,
             repo: github_1.context.repo.repo,
             userLogin,
