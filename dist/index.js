@@ -24,7 +24,9 @@ async function assignReviewers({ owner, repo, number, token, userLogin, debug, }
         throw new Error("Failed to list commits: " + error.message); // TODO: add cause
     }
     // deduplicate authors in case of multiple commits by the same author
-    const authors = new Set(commits.data.map((commit) => commit.author?.login));
+    const authors = new Set(commits.data
+        .map((commit) => commit.author?.login)
+        .filter((login) => login !== undefined && login !== null));
     authors.delete(userLogin);
     debug(`Authors: ${authors}`);
     const result = await octokit.rest.pulls.requestReviewers({
