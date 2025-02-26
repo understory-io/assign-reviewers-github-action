@@ -8,6 +8,7 @@
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.assignReviewers = assignReviewers;
+exports.selectReviewers = selectReviewers;
 const github_1 = __nccwpck_require__(3228);
 async function assignReviewers({ owner, repo, number, token, userLogin, debug, info, }) {
     const octokit = (0, github_1.getOctokit)(token);
@@ -23,23 +24,21 @@ async function assignReviewers({ owner, repo, number, token, userLogin, debug, i
     catch (error) {
         throw new Error("Failed to list commits: " + error.message); // TODO: add cause
     }
-    // deduplicate authors in case of multiple commits by the same author
-    const authors = new Set(commits.data
-        .map((commit) => commit.author?.login)
-        .filter((login) => login !== undefined && login !== null));
-    authors.delete(userLogin);
-    info(`Commit authors: ${[...authors]}`);
     const existingReviewers = await octokit.rest.pulls.listRequestedReviewers({
         owner: owner,
         repo: repo,
         pull_number: number,
     });
-    const existingReviewerLogins = new Set(existingReviewers.data.users.map((user) => user.login));
-    info(`Existing open reviewers: ${[...existingReviewerLogins]}`);
-    // filter out authors who has already provided a review
-    const relevantAuthors = [...authors].filter((author) => existingReviewerLogins.has(author));
-    debug(`Relevant authors: ${relevantAuthors}`);
-    if (relevantAuthors.length === 0) {
+    const reviewers = selectReviewers({
+        authors: commits.data
+            .map((commit) => commit.author?.login)
+            .filter(
+        // drop unknown authors, ie. commits with an author that is not matching a GitHub account
+        (login) => login !== undefined && login !== null),
+        existingReviewers: existingReviewers.data.users.map((user) => user.login),
+        prCreator: userLogin,
+    });
+    if (reviewers.length === 0) {
         info("No reviewers have been assigned to the pull request");
         return [];
     }
@@ -47,11 +46,20 @@ async function assignReviewers({ owner, repo, number, token, userLogin, debug, i
         owner: owner,
         repo: repo,
         pull_number: number,
-        reviewers: relevantAuthors,
+        reviewers: reviewers,
     });
     if (result.status !== 201) {
         throw new Error("Failed to update reviewers: " + JSON.stringify(result));
     }
+    return reviewers;
+}
+function selectReviewers({ authors, existingReviewers, prCreator, }) {
+    // deduplicate authors in case of multiple commits by the same author
+    const authorsMap = new Set(authors);
+    authorsMap.delete(prCreator);
+    const existingReviewerMap = new Set(existingReviewers);
+    // filter out authors who has already provided a review
+    const relevantAuthors = [...authorsMap].filter((author) => !existingReviewerMap.has(author));
     return relevantAuthors;
 }
 

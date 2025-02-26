@@ -32,36 +32,24 @@ export async function assignReviewers({
     throw new Error("Failed to list commits: " + error.message); // TODO: add cause
   }
 
-  // deduplicate authors in case of multiple commits by the same author
-  const authors = new Set<string>(
-    commits.data
-      .map((commit) => commit.author?.login)
-      .filter((login): login is string => login !== undefined && login !== null)
-  );
-  authors.delete(userLogin);
-
-  info(`Commit authors: ${[...authors]}`);
-
   const existingReviewers = await octokit.rest.pulls.listRequestedReviewers({
     owner: owner,
     repo: repo,
     pull_number: number,
   });
 
-  const existingReviewerLogins = new Set(
-    existingReviewers.data.users.map((user) => user.login)
-  );
+  const reviewers = selectReviewers({
+    authors: commits.data
+      .map((commit) => commit.author?.login)
+      .filter(
+        // drop unknown authors, ie. commits with an author that is not matching a GitHub account
+        (login): login is string => login !== undefined && login !== null
+      ),
+    existingReviewers: existingReviewers.data.users.map((user) => user.login),
+    prCreator: userLogin,
+  });
 
-  info(`Existing open reviewers: ${[...existingReviewerLogins]}`);
-
-  // filter out authors who has already provided a review
-  const relevantAuthors = [...authors].filter((author) =>
-    existingReviewerLogins.has(author)
-  );
-
-  debug(`Relevant authors: ${relevantAuthors}`);
-
-  if (relevantAuthors.length === 0) {
+  if (reviewers.length === 0) {
     info("No reviewers have been assigned to the pull request");
     return [];
   }
@@ -70,12 +58,36 @@ export async function assignReviewers({
     owner: owner,
     repo: repo,
     pull_number: number,
-    reviewers: relevantAuthors,
+    reviewers: reviewers,
   });
 
   if (result.status !== 201) {
     throw new Error("Failed to update reviewers: " + JSON.stringify(result));
   }
+
+  return reviewers;
+}
+
+export function selectReviewers({
+  authors,
+  existingReviewers,
+  prCreator,
+}: {
+  authors: string[];
+  existingReviewers: string[];
+  prCreator: string;
+}): string[] {
+  // deduplicate authors in case of multiple commits by the same author
+  const authorsMap = new Set<string>(authors);
+
+  authorsMap.delete(prCreator);
+
+  const existingReviewerMap = new Set(existingReviewers);
+
+  // filter out authors who has already provided a review
+  const relevantAuthors = [...authorsMap].filter(
+    (author) => !existingReviewerMap.has(author)
+  );
 
   return relevantAuthors;
 }

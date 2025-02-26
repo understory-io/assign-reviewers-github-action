@@ -31,3 +31,7 @@ jobs:
       - name: Build dist/ Directory
         id: build
         run: npm run build
+
+      - name: Test
+        id: test
+        run: npm run test
