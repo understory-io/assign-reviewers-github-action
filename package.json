@@ -6,6 +6,8 @@
   "scripts": {
     "build": "tsc && ncc build lib/index.js",
     "manual-test": "tsc && node lib/tests/test.js",
+    "test": "mocha",
+    "test:watch": "npm run test -- --watch",
     "prepare": "husky"
   },
   "author": "",
@@ -15,9 +17,12 @@
     "@actions/github": "^6.0.0"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^22.13.5",
     "@vercel/ncc": "^0.38.3",
     "husky": "^9.1.7",
+    "mocha": "^11.1.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
   }
 }
