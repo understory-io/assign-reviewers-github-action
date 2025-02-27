@@ -10,7 +10,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.assignReviewers = assignReviewers;
 exports.selectReviewers = selectReviewers;
 const github_1 = __nccwpck_require__(3228);
-async function assignReviewers({ owner, repo, number, token, userLogin, debug, info, }) {
+async function assignReviewers({ owner, repo, number, token, userLogin, info, }) {
     const octokit = (0, github_1.getOctokit)(token);
     let commits;
     try {
@@ -19,48 +19,63 @@ async function assignReviewers({ owner, repo, number, token, userLogin, debug, i
             repo: repo,
             pull_number: number,
         });
-        debug("Commits: " + JSON.stringify(commits));
     }
     catch (error) {
         throw new Error("Failed to list commits: " + error.message); // TODO: add cause
     }
-    const existingReviewers = await octokit.rest.pulls.listRequestedReviewers({
+    const completedReviewers = await octokit.rest.pulls.listReviews({
         owner: owner,
         repo: repo,
         pull_number: number,
     });
-    const reviewers = selectReviewers({
-        authors: commits.data
-            .map((commit) => commit.author?.login)
-            .filter(
+    const commitAuthorLogins = commits.data
+        .map((commit) => commit.author?.login)
         // drop unknown authors, ie. commits with an author that is not matching a GitHub account
-        (login) => login !== undefined && login !== null),
-        existingReviewers: existingReviewers.data.users.map((user) => user.login),
+        .filter(dropFalsy);
+    const completedReviewersLogins = completedReviewers.data
+        .map((review) => review.user?.login)
+        // drop unknown authors, ie. commits with an author that is not matching a GitHub account
+        .filter(dropFalsy);
+    const reviewers = selectReviewers({
+        authors: commitAuthorLogins,
+        completedReviewers: completedReviewersLogins,
         prCreator: userLogin,
+        info,
     });
     if (reviewers.length === 0) {
         info("No reviewers have been assigned to the pull request");
-        return [];
+        return;
     }
-    const result = await octokit.rest.pulls.requestReviewers({
-        owner: owner,
-        repo: repo,
-        pull_number: number,
-        reviewers: reviewers,
-    });
-    if (result.status !== 201) {
-        throw new Error("Failed to update reviewers: " + JSON.stringify(result));
-    }
-    return reviewers;
+    info(`Assigning the following reviewers: ${reviewers.join(", ")}`);
+    // const result = await octokit.rest.pulls.requestReviewers({
+    //   owner: owner,
+    //   repo: repo,
+    //   pull_number: number,
+    //   reviewers: reviewers,
+    // });
+    // if (result.status !== 201) {
+    //   throw new Error("Failed to update reviewers: " + JSON.stringify(result));
+    // }
 }
-function selectReviewers({ authors, existingReviewers, prCreator, }) {
+function selectReviewers({ authors, completedReviewers, prCreator, info, }) {
     // deduplicate authors in case of multiple commits by the same author
     const authorsMap = new Set(authors);
     authorsMap.delete(prCreator);
-    const existingReviewerMap = new Set(existingReviewers);
-    // filter out authors who has already provided a review
-    const relevantAuthors = [...authorsMap].filter((author) => !existingReviewerMap.has(author));
-    return relevantAuthors;
+    // deduplicate completed reviewers in case of multiple reviews by the same author
+    const completedReviewersMap = new Set(completedReviewers);
+    info(`Authors:             ${prettyPrint(authorsMap)}`);
+    info(`Completed reviewers: ${prettyPrint(completedReviewersMap)}`);
+    // remove already completed reviewers to avoid re-reviews
+    completedReviewersMap.forEach((reviewer) => {
+        authorsMap.delete(reviewer);
+    });
+    return [...authorsMap].sort();
+}
+function prettyPrint(a) {
+    return `[${[...a].sort().join(", ")}]`;
+}
+function dropFalsy(v) {
+    return v !== undefined && v !== null;
 }
 
 
@@ -116,23 +131,14 @@ async function run() {
         }
         const { number, user: { login: userLogin }, } = target;
         const token = core.getInput("token", { required: true });
-        const authors = await (0, assignReviewers_1.assignReviewers)({
+        await (0, assignReviewers_1.assignReviewers)({
             number,
             token,
-            debug: core.debug,
             info: core.info,
             owner: github_1.context.repo.owner,
             repo: github_1.context.repo.repo,
             userLogin,
         });
-        if (authors.length === 0) {
-            core.info(`No reviewers have been assigned to the pull request: #${number}`);
-        }
-        else {
-            core.info(`${authors
-                .map((a) => `@${a}`)
-                .join(", ")} has been assigned to the pull request: #${number}`);
-        }
     }
     catch (error) {
         core.debug("context.payload: " + JSON.stringify(github_1.context.payload));

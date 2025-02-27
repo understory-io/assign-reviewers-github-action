@@ -15,27 +15,14 @@ async function run() {
 
     const token = core.getInput("token", { required: true });
 
-    const authors = await assignReviewers({
+    await assignReviewers({
       number,
       token,
-      debug: core.debug,
       info: core.info,
       owner: context.repo.owner,
       repo: context.repo.repo,
       userLogin,
     });
-
-    if (authors.length === 0) {
-      core.info(
-        `No reviewers have been assigned to the pull request: #${number}`
-      );
-    } else {
-      core.info(
-        `${authors
-          .map((a) => `@${a}`)
-          .join(", ")} has been assigned to the pull request: #${number}`
-      );
-    }
   } catch (error: any) {
     core.debug("context.payload: " + JSON.stringify(context.payload));
     core.error(error);

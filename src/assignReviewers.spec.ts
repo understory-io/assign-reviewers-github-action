@@ -7,7 +7,7 @@ describe("selectReviewers", () => {
       description:
         "should return authors excluding the PR creator and existing reviewers",
       authors: ["alice", "bob", "charlie"],
-      existingReviewers: ["bob"],
+      completedReviewers: ["bob"],
       prCreator: "alice",
       expected: ["charlie"],
     },
@@ -15,7 +15,7 @@ describe("selectReviewers", () => {
       description:
         "should return an empty array if all authors are either the PR creator or existing reviewers",
       authors: ["alice", "bob"],
-      existingReviewers: ["bob"],
+      completedReviewers: ["bob"],
       prCreator: "alice",
       expected: [],
     },
@@ -23,41 +23,44 @@ describe("selectReviewers", () => {
       description:
         "should return all authors if none are the PR creator or existing reviewers",
       authors: ["alice", "bob", "charlie"],
-      existingReviewers: ["dave"],
+      completedReviewers: [],
       prCreator: "eve",
       expected: ["alice", "bob", "charlie"],
     },
     {
-      description: "should handle empty authors array",
-      authors: [],
-      existingReviewers: ["bob"],
-      prCreator: "alice",
-      expected: [],
-    },
-    {
       description: "should handle empty existing reviewers array",
-      authors: ["alice", "bob", "charlie"],
-      existingReviewers: [],
+      authors: ["alice", "charlie", "bob"],
+      completedReviewers: [],
       prCreator: "alice",
       expected: ["bob", "charlie"],
     },
     {
-      description: "should deduplicate auhtors",
+      description: "should deduplicate authors",
       authors: ["alice", "bob", "bob"],
-      existingReviewers: [],
+      completedReviewers: [],
       prCreator: "alice",
+      expected: ["bob"],
+    },
+    {
+      description: "should deduplicate completed reviews",
+      authors: ["alice", "bob"],
+      completedReviewers: ["alice", "alice"],
+      prCreator: "eve",
       expected: ["bob"],
     },
   ];
 
   testCases.forEach(
-    ({ description, authors, existingReviewers, prCreator, expected }) => {
+    ({ description, authors, prCreator, expected, completedReviewers }) => {
       it(description, () => {
         const result = selectReviewers({
           authors,
-          existingReviewers,
+          completedReviewers,
           prCreator,
+          info: console.log,
         });
+
+        console.log(`New reviewers:       [${result.join(", ")}]`);
         assert.deepEqual(result, expected);
       });
     }

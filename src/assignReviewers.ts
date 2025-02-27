@@ -6,7 +6,6 @@ export async function assignReviewers({
   number,
   token,
   userLogin,
-  debug,
   info,
 }: {
   owner: string;
@@ -15,8 +14,7 @@ export async function assignReviewers({
   token: string;
   userLogin: string;
   info: (message: string) => void;
-  debug: (message: string) => void;
-}): Promise<Array<string>> {
+}): Promise<void> {
   const octokit = getOctokit(token);
 
   let commits;
@@ -27,67 +25,85 @@ export async function assignReviewers({
       repo: repo,
       pull_number: number,
     });
-    debug("Commits: " + JSON.stringify(commits));
   } catch (error: any) {
     throw new Error("Failed to list commits: " + error.message); // TODO: add cause
   }
 
-  const existingReviewers = await octokit.rest.pulls.listRequestedReviewers({
+  const completedReviewers = await octokit.rest.pulls.listReviews({
     owner: owner,
     repo: repo,
     pull_number: number,
   });
 
+  const commitAuthorLogins = commits.data
+    .map((commit) => commit.author?.login)
+    // drop unknown authors, ie. commits with an author that is not matching a GitHub account
+    .filter(dropFalsy);
+  const completedReviewersLogins = completedReviewers.data
+    .map((review) => review.user?.login)
+    // drop unknown authors, ie. commits with an author that is not matching a GitHub account
+    .filter(dropFalsy);
+
   const reviewers = selectReviewers({
-    authors: commits.data
-      .map((commit) => commit.author?.login)
-      .filter(
-        // drop unknown authors, ie. commits with an author that is not matching a GitHub account
-        (login): login is string => login !== undefined && login !== null
-      ),
-    existingReviewers: existingReviewers.data.users.map((user) => user.login),
+    authors: commitAuthorLogins,
+    completedReviewers: completedReviewersLogins,
     prCreator: userLogin,
+    info,
   });
 
   if (reviewers.length === 0) {
     info("No reviewers have been assigned to the pull request");
-    return [];
+    return;
   }
 
-  const result = await octokit.rest.pulls.requestReviewers({
-    owner: owner,
-    repo: repo,
-    pull_number: number,
-    reviewers: reviewers,
-  });
+  info(`Assigning the following reviewers: ${reviewers.join(", ")}`);
 
-  if (result.status !== 201) {
-    throw new Error("Failed to update reviewers: " + JSON.stringify(result));
-  }
+  // const result = await octokit.rest.pulls.requestReviewers({
+  //   owner: owner,
+  //   repo: repo,
+  //   pull_number: number,
+  //   reviewers: reviewers,
+  // });
 
-  return reviewers;
+  // if (result.status !== 201) {
+  //   throw new Error("Failed to update reviewers: " + JSON.stringify(result));
+  // }
 }
 
 export function selectReviewers({
   authors,
-  existingReviewers,
+  completedReviewers,
   prCreator,
+  info,
 }: {
   authors: string[];
-  existingReviewers: string[];
+  completedReviewers: string[];
   prCreator: string;
+  info: (message: string) => void;
 }): string[] {
   // deduplicate authors in case of multiple commits by the same author
   const authorsMap = new Set<string>(authors);
 
   authorsMap.delete(prCreator);
 
-  const existingReviewerMap = new Set(existingReviewers);
+  // deduplicate completed reviewers in case of multiple reviews by the same author
+  const completedReviewersMap = new Set<string>(completedReviewers);
 
-  // filter out authors who has already provided a review
-  const relevantAuthors = [...authorsMap].filter(
-    (author) => !existingReviewerMap.has(author)
-  );
+  info(`Authors:             ${prettyPrint(authorsMap)}`);
+  info(`Completed reviewers: ${prettyPrint(completedReviewersMap)}`);
 
-  return relevantAuthors;
+  // remove already completed reviewers to avoid re-reviews
+  completedReviewersMap.forEach((reviewer) => {
+    authorsMap.delete(reviewer);
+  });
+
+  return [...authorsMap].sort();
+}
+
+function prettyPrint(a: Set<string>): string {
+  return `[${[...a].sort().join(", ")}]`;
+}
+
+function dropFalsy(v: string | null | undefined): v is string {
+  return v !== undefined && v !== null;
 }
