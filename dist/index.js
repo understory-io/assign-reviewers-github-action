@@ -47,15 +47,15 @@ async function assignReviewers({ owner, repo, number, token, userLogin, info, })
         return;
     }
     info(`Assigning the following reviewers: ${reviewers.join(", ")}`);
-    // const result = await octokit.rest.pulls.requestReviewers({
-    //   owner: owner,
-    //   repo: repo,
-    //   pull_number: number,
-    //   reviewers: reviewers,
-    // });
-    // if (result.status !== 201) {
-    //   throw new Error("Failed to update reviewers: " + JSON.stringify(result));
-    // }
+    const result = await octokit.rest.pulls.requestReviewers({
+        owner: owner,
+        repo: repo,
+        pull_number: number,
+        reviewers: reviewers,
+    });
+    if (result.status !== 201) {
+        throw new Error("Failed to update reviewers: " + JSON.stringify(result));
+    }
 }
 function selectReviewers({ authors, completedReviewers, prCreator, info, }) {
     // deduplicate authors in case of multiple commits by the same author

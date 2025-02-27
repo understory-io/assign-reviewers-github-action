@@ -58,16 +58,16 @@ export async function assignReviewers({
 
   info(`Assigning the following reviewers: ${reviewers.join(", ")}`);
 
-  // const result = await octokit.rest.pulls.requestReviewers({
-  //   owner: owner,
-  //   repo: repo,
-  //   pull_number: number,
-  //   reviewers: reviewers,
-  // });
+  const result = await octokit.rest.pulls.requestReviewers({
+    owner: owner,
+    repo: repo,
+    pull_number: number,
+    reviewers: reviewers,
+  });
 
-  // if (result.status !== 201) {
-  //   throw new Error("Failed to update reviewers: " + JSON.stringify(result));
-  // }
+  if (result.status !== 201) {
+    throw new Error("Failed to update reviewers: " + JSON.stringify(result));
+  }
 }
 
 export function selectReviewers({
