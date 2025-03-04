@@ -19,6 +19,7 @@ async function run() {
       number,
       token,
       info: core.info,
+      debug: core.debug,
       owner: context.repo.owner,
       repo: context.repo.repo,
       userLogin,

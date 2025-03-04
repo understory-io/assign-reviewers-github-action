@@ -10,7 +10,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.assignReviewers = assignReviewers;
 exports.selectReviewers = selectReviewers;
 const github_1 = __nccwpck_require__(3228);
-async function assignReviewers({ owner, repo, number, token, userLogin, info, }) {
+async function assignReviewers({ owner, repo, number, token, userLogin, debug, info, }) {
     const octokit = (0, github_1.getOctokit)(token);
     let commits;
     try {
@@ -28,6 +28,8 @@ async function assignReviewers({ owner, repo, number, token, userLogin, info, })
         repo: repo,
         pull_number: number,
     });
+    debug("Commits: " + JSON.stringify(commits));
+    debug("Completed authors: " + JSON.stringify(completedReviewers));
     const commitAuthorLogins = commits.data
         .map((commit) => commit.author?.login)
         // drop unknown authors, ie. commits with an author that is not matching a GitHub account
@@ -135,6 +137,7 @@ async function run() {
             number,
             token,
             info: core.info,
+            debug: core.debug,
             owner: github_1.context.repo.owner,
             repo: github_1.context.repo.repo,
             userLogin,

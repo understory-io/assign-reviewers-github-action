@@ -6,6 +6,7 @@ export async function assignReviewers({
   number,
   token,
   userLogin,
+  debug,
   info,
 }: {
   owner: string;
@@ -13,6 +14,7 @@ export async function assignReviewers({
   number: number;
   token: string;
   userLogin: string;
+  debug: (message: string) => void;
   info: (message: string) => void;
 }): Promise<void> {
   const octokit = getOctokit(token);
@@ -34,6 +36,9 @@ export async function assignReviewers({
     repo: repo,
     pull_number: number,
   });
+
+  debug("Commits: " + JSON.stringify(commits));
+  debug("Completed authors: " + JSON.stringify(completedReviewers));
 
   const commitAuthorLogins = commits.data
     .map((commit) => commit.author?.login)
