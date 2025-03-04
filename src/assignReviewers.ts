@@ -41,6 +41,7 @@ export async function assignReviewers({
   debug("Completed authors: " + JSON.stringify(completedReviewers));
 
   const commitAuthorLogins = commits.data
+    .filter((commit) => commit.author?.type !== "Bot")
     .map((commit) => commit.author?.login)
     // drop unknown authors, ie. commits with an author that is not matching a GitHub account
     .filter(dropFalsy);
