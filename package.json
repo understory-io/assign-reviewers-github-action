@@ -14,15 +14,15 @@
   "license": "ISC",
   "dependencies": {
     "@actions/core": "^1.11.1",
-    "@actions/github": "^6.0.0"
+    "@actions/github": "^6.0.1"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^22.13.5",
+    "@types/node": "^22.16.5",
     "@vercel/ncc": "^0.38.3",
     "husky": "^9.1.7",
-    "mocha": "^11.1.0",
+    "mocha": "^11.7.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.8.3"
   }
 }
